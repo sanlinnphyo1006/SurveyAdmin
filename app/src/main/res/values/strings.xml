@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">SurveyAdmin</string>
+    <string name="allowed_to_submit">Allowed</string>
+    <string name="disabled_to_submit">Disabled</string>
+    <string name="allowing_to_submit">Allowing</string>
+    <string name="disabling_to_submit">Disabling</string>
+    <string name="checking_permission">Checking</string>
+
+</resources>
