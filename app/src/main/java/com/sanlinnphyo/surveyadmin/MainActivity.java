@@ -5,26 +5,28 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
 import android.Manifest;
 import android.widget.Toast;
 
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
     boolean allowToSubmit = false;
-    String strTitles = "";
+    String content = "";
+    String[] titles = {"အစိုးရကျောင်းနှင့် ပုဂ္ဂလိကကျောင်းရွေးချယ်တက်ခြင်းက ကျောင်းသား/သူများအတွက်အရေးကြီးပါသလား။",
+                        "ဆရာဆရာမများ၏ သင်ကြားရေးအရည်အချင်းများက ကျောင်းသား/သူများအပေါ်သက်ရောက်မှုရှိသလား။",
+                        "ကျောင်း၏ ဥပတိရုပ်ကောင်းမွန်မှု ရန်ပုံငွေတည်ထောင်ထားရှိမှု၊ အကူအညီရရှိမှုသည် အရေးပါပါသလား။"
+                        };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,10 +69,10 @@ public class MainActivity extends AppCompatActivity {
                 });
 
         btnAllow.setOnClickListener(view -> {
-            allowToSubmit = !allowToSubmit;
             btnAllow.setText(Boolean.TRUE.equals(allowToSubmit) ? R.string.disabling_to_submit : R.string.allowing_to_submit);
             btnAllow.setEnabled(false);
-            Toast.makeText(getApplicationContext(), allowToSubmit ? "ဖောင်တင်ခြင်းကို ခွင့်ပြုနေပါသည်။" : "ဖောင်တင်ခြင်းကို ပိတ်နေပါသည်။", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(), allowToSubmit ? "ဖောင်တင်ခြင်းကို ပိတ်နေပါသည်။" : "ဖောင်တင်ခြင်းကို ခွင့်ပြုနေပါသည်။", Toast.LENGTH_SHORT).show();
+            allowToSubmit = !allowToSubmit;
             db.collection("survey").document("status").update("canSubmit", allowToSubmit).addOnSuccessListener(command -> {
                 btnAllow.setText(Boolean.TRUE.equals(allowToSubmit) ? R.string.disabled_to_submit : R.string.allowed_to_submit);
                 btnAllow.setEnabled(true);
@@ -78,50 +80,59 @@ public class MainActivity extends AppCompatActivity {
             });
         });
 
-//        btnExport.setEnabled(Integer.parseInt(txtTotalResponses.getText().toString()) > 0);
-
-        ArrayList<String> titles = new ArrayList<>();
-
-        db.collection("survey")
-                .document("totalTitles")
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    if(snapshot.exists()){
-                        for (int i = 0; i < snapshot.getData().size(); i++) {
-                            titles.add((String) snapshot.getData().get(String.valueOf(i+1)));
-                        }
-                    }
-                });
-
         btnExport.setOnClickListener(view -> {
-
-//            db.collection("survey")
-//                    .document("datasDocument")
-//                    .collection("datasCollection")
-//                    .get()
-//                    .addOnSuccessListener(queryDocumentSnapshots -> {
-//                        for (DocumentSnapshot qds : queryDocumentSnapshots.getDocuments()) {
-//
-//                        }
-//                    });
-
-            // Get Documents folder inside internal storage
-            File documentsFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-            // Then create a file inside Documents folder
-            File file = new File(documentsFolder, "survey-data.csv");
-            try {
-                FileOutputStream fileWriter = new FileOutputStream(file);
-                for (int i = 0; i < titles.size(); i++) {
-                    strTitles += i == 0 ? titles.get(i) : ", " + titles.get(i);
-                }
-                Log.e("test", strTitles);
-                fileWriter.write(strTitles.getBytes());
-                Log.e("test", strTitles.getBytes().toString());
-                fileWriter.close();
-                Toast.makeText(getApplicationContext(), "Created a file inside " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
-            }catch (Exception e){
-                e.printStackTrace();
+            for (int i = 0; i < titles.length; i++) {
+                content = i == 0 ? titles[i] : content + "," + titles[i];
             }
+
+            content += "\n";
+
+            db.collection("survey")
+                    .document("datasDocument")
+                    .collection("datasCollection")
+                    .get()
+                    .addOnSuccessListener(queryDocumentSnapshots -> {
+                        for (QueryDocumentSnapshot snapshot:queryDocumentSnapshots) {
+
+                            if(snapshot.getData().size() > 1){
+                                for (int i = 1; i <= 3; i++) {
+                                    if(snapshot.getData().get(String.valueOf(i)) != null){
+                                        if(i == 1){
+                                            content += snapshot.getData().get(String.valueOf(i));
+                                        }
+                                        else{
+                                            content += ", " + snapshot.getData().get(String.valueOf(i));
+                                        }
+                                    }
+                                }
+                            }else {
+                                if(snapshot.getData().get(String.valueOf(1)) != null){
+                                    content += snapshot.getData().get(String.valueOf(1));
+                                }
+                                else if(snapshot.getData().get(String.valueOf(2)) != null){
+                                    content += ", " + snapshot.getData().get(String.valueOf(2));
+                                }
+                                else{
+                                    content += ", , " + snapshot.getData().get(String.valueOf(3));
+                                }
+                            }
+                            content += "\n";
+                        }
+
+                        // Get Documents folder inside internal storage
+                        File documentsFolder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+                        // Then create a file inside Documents folder
+                        File file = new File(documentsFolder, "survey-data.csv");
+                        try {
+                            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file.getAbsolutePath()), StandardCharsets.UTF_8));
+                            writer.write(content);
+
+                            writer.close();
+                            Toast.makeText(getApplicationContext(), "Created a file inside " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
+                        }catch (Exception e){
+                            e.printStackTrace();
+                        }
+                    });
         });
     }
 }
